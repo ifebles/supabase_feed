@@ -2,39 +2,107 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_feed/enums/loading_status.dart';
 import 'package:supabase_feed/widgets/datetime_form_field.dart';
+import 'package:supabase_feed/widgets/retry_data_fetch.dart';
 import 'package:supabase_feed/widgets/sized_progress_indicator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class CreateActivity extends StatefulWidget {
-  const CreateActivity({super.key});
+class UpdateActivity extends StatefulWidget {
+  const UpdateActivity({super.key});
 
   @override
-  State<CreateActivity> createState() => _CreateActivityState();
+  State<UpdateActivity> createState() => _UpdateActivityState();
 }
 
-class _CreateActivityState extends State<CreateActivity> {
+class _UpdateActivityState extends State<UpdateActivity> {
   final client = Supabase.instance.client;
   final _formKey = GlobalKey<FormState>();
   final _datetimeController = TextEditingController();
-  final fields = <String, dynamic>{};
-  LoadingStatus? loadingStatus;
+
+  var loadingStatus = LoadingStatus.loading;
+  int? entryID;
+  Map<String, dynamic> fields = {};
+  LoadingStatus? editLoadingStatus;
+
+  void fetchData() async {
+    await Future.delayed(Duration.zero);
+
+    if (!mounted) {
+      return;
+    }
+
+    int id;
+
+    if (entryID != null) {
+      id = entryID!;
+    } else {
+      var args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+
+      if (args == null) {
+        return;
+      }
+
+      id = args['id'];
+    }
+
+    var fail = false;
+    final result = await client
+        .from('activity')
+        .select()
+        .eq('id', id)
+        .single()
+        .catchError((error) {
+      if (kDebugMode) {
+        print(error);
+      }
+
+      fail = true;
+      return <String, dynamic>{};
+    });
+
+    setState(() {
+      entryID = id;
+      fields = result;
+      loadingStatus = fail ? LoadingStatus.fail : LoadingStatus.success;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    fetchData();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Activity'),
-        centerTitle: true,
-        backgroundColor: Colors.blueAccent[700],
-        foregroundColor: Colors.white,
-      ),
-      body: Padding(
+    Widget body;
+
+    if (loadingStatus == LoadingStatus.loading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (loadingStatus == LoadingStatus.fail) {
+      body = Center(
+        child: RetryDataFetch(
+          label: 'Unable to load the required information',
+          onPressed: () {
+            setState(() {
+              loadingStatus = LoadingStatus.loading;
+              fields = {};
+            });
+
+            fetchData();
+          },
+          color: Colors.blueAccent[700],
+        ),
+      );
+    } else {
+      body = Padding(
         padding: const EdgeInsets.all(8.0),
         child: Form(
           key: _formKey,
           child: Column(
             children: [
               TextFormField(
+                initialValue: fields['title'],
                 onSaved: (newValue) => fields['title'] = newValue,
                 decoration: const InputDecoration(
                   label: Text('Activity title'),
@@ -49,6 +117,7 @@ class _CreateActivityState extends State<CreateActivity> {
                 },
               ),
               TextFormField(
+                initialValue: fields['detail'],
                 onSaved: (newValue) => fields['detail'] = newValue,
                 minLines: 2,
                 maxLines: 5,
@@ -65,6 +134,7 @@ class _CreateActivityState extends State<CreateActivity> {
                 },
               ),
               DatetimeFormField(
+                initialDate: DateTime.parse(fields['date']),
                 onSaved: (newDate) =>
                     fields['date'] = newDate!.toIso8601String(),
                 controller: _datetimeController,
@@ -84,14 +154,14 @@ class _CreateActivityState extends State<CreateActivity> {
               ),
               const Expanded(child: SizedBox()),
               ElevatedButton.icon(
-                icon: loadingStatus == LoadingStatus.loading
+                icon: editLoadingStatus == LoadingStatus.loading
                     ? const SizedProgressIndicator(
                         diameter: 25,
                         strokeWidth: 3,
                         color: Colors.white,
                       )
-                    : const Icon(Icons.add),
-                label: const Text('Create'),
+                    : const Icon(Icons.edit),
+                label: const Text('Update'),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(40),
                   backgroundColor: Colors.blue[700],
@@ -99,7 +169,7 @@ class _CreateActivityState extends State<CreateActivity> {
                   textStyle: const TextStyle(fontSize: 18, letterSpacing: 1),
                 ),
                 onPressed: () {
-                  if (loadingStatus != null ||
+                  if (editLoadingStatus != null ||
                       _formKey.currentState?.validate() != true) {
                     return;
                   }
@@ -108,12 +178,13 @@ class _CreateActivityState extends State<CreateActivity> {
                   var fail = false;
 
                   setState(() {
-                    loadingStatus = LoadingStatus.loading;
+                    editLoadingStatus = LoadingStatus.loading;
                   });
 
                   client
                       .from('activity')
-                      .insert(fields)
+                      .update(fields)
+                      .eq('id', entryID!)
                       .select()
                       .catchError((error) {
                     fail = true;
@@ -124,16 +195,16 @@ class _CreateActivityState extends State<CreateActivity> {
 
                     return <Map<String, dynamic>>[];
                   }).then((value) {
-                    var message = 'Activity succesfully created';
+                    var message = 'Activity succesfully updated';
                     LoadingStatus? newStatus = LoadingStatus.success;
 
                     if (fail) {
-                      message = 'A problem ocurred creating the activity';
+                      message = 'A problem ocurred updating the activity';
                       newStatus = null;
                     }
 
                     setState(() {
-                      loadingStatus = newStatus;
+                      editLoadingStatus = newStatus;
                     });
 
                     ScaffoldMessenger.of(context)
@@ -142,7 +213,7 @@ class _CreateActivityState extends State<CreateActivity> {
                         ))
                         .closed
                         .then((value) {
-                      if (loadingStatus == LoadingStatus.success) {
+                      if (editLoadingStatus == LoadingStatus.success) {
                         Navigator.pop(context);
                       }
                     });
@@ -152,6 +223,18 @@ class _CreateActivityState extends State<CreateActivity> {
             ],
           ),
         ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Update Activity'),
+        centerTitle: true,
+        backgroundColor: Colors.blueAccent[700],
+        foregroundColor: Colors.white,
+      ),
+      body: SafeArea(
+        child: body,
       ),
     );
   }

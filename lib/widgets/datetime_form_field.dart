@@ -5,6 +5,7 @@ class DatetimeFormField extends StatefulWidget {
   final TextEditingController controller;
   final DateTime firstDate;
   final DateTime? lastDate;
+  final DateTime? initialDate;
   final TimeOfDay? initialTime;
   final void Function(DateTime? newDate)? onSaved;
   final String? Function(DateTime?)? validator;
@@ -17,6 +18,7 @@ class DatetimeFormField extends StatefulWidget {
     required this.controller,
     required this.firstDate,
     this.lastDate,
+    this.initialDate,
     this.initialTime,
     this.onSaved,
     this.validator,
@@ -31,6 +33,17 @@ class DatetimeFormField extends StatefulWidget {
 
 class _DatetimeFormFieldState extends State<DatetimeFormField> {
   DateTime? selectedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    selectedDate = widget.initialDate;
+
+    if (selectedDate != null) {
+      widget.controller.text =
+          DateFormat(widget.dateFormat).format(selectedDate!);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

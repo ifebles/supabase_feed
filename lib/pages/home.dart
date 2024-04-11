@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_feed/enums/loading_status.dart';
 import 'package:supabase_feed/widgets/list_entry.dart';
+import 'package:supabase_feed/widgets/retry_data_fetch.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class Home extends StatefulWidget {
@@ -48,34 +49,17 @@ class _HomeState extends State<Home> {
       body = const Center(child: CircularProgressIndicator());
     } else if (loadingStatus == LoadingStatus.fail) {
       body = Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Unable to load the required information',
-              style: TextStyle(
-                fontSize: 15,
-              ),
-            ),
-            const SizedBox(height: 5),
-            TextButton.icon(
-              onPressed: () {
-                setState(() {
-                  loadingStatus = LoadingStatus.loading;
-                  data = [];
-                });
+        child: RetryDataFetch(
+          label: 'Unable to load the required information',
+          onPressed: () {
+            setState(() {
+              loadingStatus = LoadingStatus.loading;
+              data = [];
+            });
 
-                fetchData();
-              },
-              style: ButtonStyle(
-                  foregroundColor:
-                      MaterialStatePropertyAll(Colors.blueAccent[700])),
-              icon: const Icon(Icons.refresh),
-              label: const Text(
-                'Retry',
-              ),
-            )
-          ],
+            fetchData();
+          },
+          color: Colors.blueAccent[700],
         ),
       );
     } else if (data.isEmpty) {
