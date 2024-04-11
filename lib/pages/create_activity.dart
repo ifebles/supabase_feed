@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:supabase_feed/enums/loading_status.dart';
+import 'package:supabase_feed/widgets/datetime_form_field.dart';
+import 'package:supabase_feed/widgets/sized_progress_indicator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class CreateActivity extends StatefulWidget {
@@ -17,7 +18,6 @@ class _CreateActivityState extends State<CreateActivity> {
   final _datetimeController = TextEditingController();
   final fields = <String, dynamic>{};
   LoadingStatus? loadingStatus;
-  DateTime? selectedDate;
 
   @override
   Widget build(BuildContext context) {
@@ -64,52 +64,18 @@ class _CreateActivityState extends State<CreateActivity> {
                   return null;
                 },
               ),
-              TextFormField(
-                onSaved: (newValue) =>
-                    fields['date'] = selectedDate!.toIso8601String(),
+              DatetimeFormField(
+                onSaved: (newDate) =>
+                    fields['date'] = newDate!.toIso8601String(),
                 controller: _datetimeController,
-                readOnly: true,
+                firstDate: DateTime.now(),
                 decoration: const InputDecoration(
                   label: Text('Activity date & time'),
                   labelStyle: TextStyle(fontSize: 18),
                   prefixIcon: Icon(Icons.calendar_month),
                 ),
-                onTap: () async {
-                  var dateResult = await showDatePicker(
-                    context: context,
-                    firstDate: DateTime.now(),
-                    lastDate:
-                        DateTime.now().add(const Duration(days: 365 * 100)),
-                  );
-
-                  if (dateResult == null || !mounted) {
-                    return;
-                  }
-
-                  var timeResult = await showTimePicker(
-                    // ignore: use_build_context_synchronously
-                    context: context,
-                    initialTime: TimeOfDay.fromDateTime(
-                        DateTime.now().add(const Duration(hours: 2))),
-                  );
-
-                  if (timeResult == null) {
-                    return;
-                  }
-
-                  selectedDate = DateTime(
-                    dateResult.year,
-                    dateResult.month,
-                    dateResult.day,
-                    timeResult.hour,
-                    timeResult.minute,
-                  );
-
-                  _datetimeController.text =
-                      DateFormat('dd/MM/yyyy hh:mm a').format(selectedDate!);
-                },
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null) {
                     return 'Please enter a valid date & time';
                   }
 
@@ -119,19 +85,15 @@ class _CreateActivityState extends State<CreateActivity> {
               const Expanded(child: SizedBox()),
               ElevatedButton.icon(
                 icon: loadingStatus == LoadingStatus.loading
-                    ? const SizedBox(
-                        height: 25,
-                        width: 25,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                          color: Colors.white,
-                        ),
+                    ? const SizedProgressIndicator(
+                        diameter: 25,
+                        strokeWidth: 3,
+                        color: Colors.white,
                       )
                     : const Icon(Icons.add),
                 label: const Text('Create'),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(40),
-                  maximumSize: const Size.fromHeight(40),
                   backgroundColor: Colors.blue[700],
                   foregroundColor: Colors.white,
                   textStyle: const TextStyle(fontSize: 18, letterSpacing: 1),
