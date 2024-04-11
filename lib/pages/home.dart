@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_feed/widgets/list_entry.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -16,7 +17,10 @@ class _HomeState extends State<Home> {
 
   void fetchData() async {
     var result = await client.from('activity').select().catchError((error) {
-      print(error);
+      if (kDebugMode) {
+        print(error);
+      }
+
       return [];
     });
 
