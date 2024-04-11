@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_feed/enums/loading_status.dart';
 import 'package:supabase_feed/widgets/list_entry.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -12,20 +13,23 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   final client = Supabase.instance.client;
-  var isLoading = true;
+  var loadingStatus = LoadingStatus.loading;
   List<Map<String, dynamic>> data = [];
 
   void fetchData() async {
+    var fail = false;
     var result = await client.from('activity').select().catchError((error) {
       if (kDebugMode) {
         print(error);
       }
 
-      return [];
+      fail = true;
+
+      return <Map<String, dynamic>>[];
     });
 
     setState(() {
-      isLoading = false;
+      loadingStatus = fail ? LoadingStatus.fail : LoadingStatus.success;
       data = result;
     });
   }
@@ -40,8 +44,40 @@ class _HomeState extends State<Home> {
   Widget build(BuildContext context) {
     Widget body;
 
-    if (isLoading) {
+    if (loadingStatus == LoadingStatus.loading) {
       body = const Center(child: CircularProgressIndicator());
+    } else if (loadingStatus == LoadingStatus.fail) {
+      body = Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'Unable to load the required information',
+              style: TextStyle(
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 5),
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  loadingStatus = LoadingStatus.loading;
+                  data = [];
+                });
+
+                fetchData();
+              },
+              style: ButtonStyle(
+                  foregroundColor:
+                      MaterialStatePropertyAll(Colors.blueAccent[700])),
+              icon: const Icon(Icons.refresh),
+              label: const Text(
+                'Retry',
+              ),
+            )
+          ],
+        ),
+      );
     } else if (data.isEmpty) {
       body = Center(
         child: Text(
