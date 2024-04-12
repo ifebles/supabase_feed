@@ -17,7 +17,7 @@ class _ListEntryState extends State<ListEntry> {
 
     return InkWell(
       onTap: () {
-        Navigator.pushNamed(context, '/update', arguments: {
+        Navigator.pushNamed(context, '/manage', arguments: {
           'id': dict['id'],
         });
       },
@@ -41,7 +41,7 @@ class _ListEntryState extends State<ListEntry> {
                 DateFormat('dd/MM/yyyy hh:mm a')
                     .format(DateTime.parse(dict['date']).toLocal()),
                 style: TextStyle(
-                  color: Colors.grey[400],
+                  color: Colors.grey[500],
                   fontSize: 12,
                 ),
               ),

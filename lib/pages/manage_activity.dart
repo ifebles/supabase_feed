@@ -6,14 +6,14 @@ import 'package:supabase_feed/widgets/retry_data_fetch.dart';
 import 'package:supabase_feed/widgets/sized_progress_indicator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class UpdateActivity extends StatefulWidget {
-  const UpdateActivity({super.key});
+class ManageActivity extends StatefulWidget {
+  const ManageActivity({super.key});
 
   @override
-  State<UpdateActivity> createState() => _UpdateActivityState();
+  State<ManageActivity> createState() => _ManageActivityState();
 }
 
-class _UpdateActivityState extends State<UpdateActivity> {
+class _ManageActivityState extends State<ManageActivity> {
   final client = Supabase.instance.client;
   final _formKey = GlobalKey<FormState>();
   final _datetimeController = TextEditingController();
@@ -219,6 +219,127 @@ class _UpdateActivityState extends State<UpdateActivity> {
                     });
                   });
                 },
+              ),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  var result = await showModalBottomSheet(
+                    enableDrag: false,
+                    isDismissible: false,
+                    context: context,
+                    builder: (context) {
+                      var isDeleting = false;
+
+                      return StatefulBuilder(
+                        builder: (context, setState) {
+                          var sheetBody = isDeleting
+                              ? const PopScope(
+                                  canPop: false,
+                                  child: CircularProgressIndicator(),
+                                )
+                              : Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Padding(
+                                      padding:
+                                          EdgeInsets.symmetric(horizontal: 80),
+                                      child: Text(
+                                        'Are you sure you want to delete this Activity?',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context),
+                                          child: Text(
+                                            'Cancel',
+                                            style: TextStyle(
+                                                color: Colors.grey[700]),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        ElevatedButton.icon(
+                                          onPressed: () {
+                                            setState(() {
+                                              isDeleting = true;
+                                            });
+
+                                            var deleteFail = false;
+                                            client
+                                                .from('activity')
+                                                .delete()
+                                                .eq('id', entryID!)
+                                                .catchError((error) {
+                                              // if (kDebugMode) {
+                                              // }
+                                                print(error);
+
+                                              deleteFail = true;
+                                            }).then((value) => Navigator.pop(
+                                                    context, !deleteFail));
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                Colors.redAccent[700],
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          icon: const Icon(Icons.delete),
+                                          label: const Text('Delete'),
+                                        ),
+                                      ],
+                                    )
+                                  ],
+                                );
+
+                          return SizedBox(
+                            height: 200,
+                            child: Center(
+                              child: sheetBody,
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  );
+
+                  if (result == null || !mounted) {
+                    return;
+                  }
+
+                  var message = 'The Activity was deleted successfully';
+
+                  if (result == false) {
+                    message = 'There was a problem deleting the Activity';
+                  }
+
+                  // ignore: use_build_context_synchronously
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(
+                        content: Text(message),
+                      ))
+                      .closed
+                      .then((value) {
+                    if (result == true) {
+                      Navigator.pop(context);
+                    }
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(40),
+                  backgroundColor: Colors.redAccent[700],
+                  foregroundColor: Colors.white,
+                  textStyle: const TextStyle(fontSize: 18, letterSpacing: 1),
+                ),
+                icon: const Icon(Icons.delete),
+                label: const Text('Delete'),
               )
             ],
           ),
@@ -228,7 +349,7 @@ class _UpdateActivityState extends State<UpdateActivity> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Update Activity'),
+        title: const Text('Manage Activity'),
         centerTitle: true,
         backgroundColor: Colors.blueAccent[700],
         foregroundColor: Colors.white,
