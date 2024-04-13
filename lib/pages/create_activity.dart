@@ -111,18 +111,12 @@ class _CreateActivityState extends State<CreateActivity> {
                     loadingStatus = LoadingStatus.loading;
                   });
 
-                  client
-                      .from('activity')
-                      .insert(fields)
-                      .select()
-                      .catchError((error) {
+                  client.from('activity').insert(fields).catchError((error) {
                     fail = true;
 
                     if (kDebugMode) {
                       print(error);
                     }
-
-                    return <Map<String, dynamic>>[];
                   }).then((value) {
                     var message = 'Activity succesfully created';
                     LoadingStatus? newStatus = LoadingStatus.success;

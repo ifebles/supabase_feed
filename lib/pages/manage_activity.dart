@@ -185,15 +185,12 @@ class _ManageActivityState extends State<ManageActivity> {
                       .from('activity')
                       .update(fields)
                       .eq('id', entryID!)
-                      .select()
                       .catchError((error) {
                     fail = true;
 
                     if (kDebugMode) {
                       print(error);
                     }
-
-                    return <Map<String, dynamic>>[];
                   }).then((value) {
                     var message = 'Activity succesfully updated';
                     LoadingStatus? newStatus = LoadingStatus.success;
@@ -278,11 +275,11 @@ class _ManageActivityState extends State<ManageActivity> {
                                                 .delete()
                                                 .eq('id', entryID!)
                                                 .catchError((error) {
-                                              // if (kDebugMode) {
-                                              // }
-                                                print(error);
-
                                               deleteFail = true;
+
+                                              if (kDebugMode) {
+                                                print(error);
+                                              }
                                             }).then((value) => Navigator.pop(
                                                     context, !deleteFail));
                                           },

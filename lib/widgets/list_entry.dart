@@ -39,7 +39,7 @@ class _ListEntryState extends State<ListEntry> {
               alignment: Alignment.centerRight,
               child: Text(
                 DateFormat('dd/MM/yyyy hh:mm a')
-                    .format(DateTime.parse(dict['date']).toLocal()),
+                    .format(DateTime.parse(dict['date'])),
                 style: TextStyle(
                   color: Colors.grey[500],
                   fontSize: 12,
