@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_feed/enums/loading_status.dart';
-import 'package:supabase_feed/widgets/list_entry.dart';
+import 'package:supabase_feed/components/list_entry.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class Home extends StatefulWidget {

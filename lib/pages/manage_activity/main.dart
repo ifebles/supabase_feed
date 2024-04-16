@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_feed/enums/loading_status.dart';
 import 'package:supabase_feed/pages/manage_activity/delete.dart';
-import 'package:supabase_feed/widgets/datetime_form_field.dart';
-import 'package:supabase_feed/widgets/retry_data_fetch.dart';
-import 'package:supabase_feed/widgets/sized_progress_indicator.dart';
+import 'package:supabase_feed/components/datetime_form_field.dart';
+import 'package:supabase_feed/components/retry_data_fetch.dart';
+import 'package:supabase_feed/components/sized_progress_indicator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ManageActivity extends StatefulWidget {

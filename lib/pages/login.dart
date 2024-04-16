@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_feed/enums/loading_status.dart';
-import 'package:supabase_feed/widgets/sized_progress_indicator.dart';
+import 'package:supabase_feed/components/sized_progress_indicator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class Login extends StatefulWidget {
