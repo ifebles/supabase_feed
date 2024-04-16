@@ -20,6 +20,12 @@ class _CreateActivityState extends State<CreateActivity> {
   LoadingStatus? loadingStatus;
 
   @override
+  void dispose() {
+    _datetimeController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(

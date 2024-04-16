@@ -75,6 +75,12 @@ class _ManageActivityState extends State<ManageActivity> {
   }
 
   @override
+  void dispose() {
+    _datetimeController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     Widget body;
 

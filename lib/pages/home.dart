@@ -18,10 +18,6 @@ class _HomeState extends State<Home> {
   var loadingStatus = LoadingStatus.loading;
   List<Map<String, dynamic>> data = [];
 
-  @override
-  void initState() {
-    super.initState();
-  }
 
   @override
   Widget build(BuildContext context) {
