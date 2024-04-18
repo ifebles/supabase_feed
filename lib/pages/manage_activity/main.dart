@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_feed/components/image_selector.dart';
 import 'package:supabase_feed/enums/loading_status.dart';
 import 'package:supabase_feed/pages/manage_activity/delete.dart';
 import 'package:supabase_feed/components/datetime_form_field.dart';
@@ -15,6 +16,10 @@ class ManageActivity extends StatefulWidget {
 }
 
 class _ManageActivityState extends State<ManageActivity> {
+  static const _activities = 'activities';
+
+  final _folderPath =
+      '${Supabase.instance.client.auth.currentUser!.id}/activity';
   final client = Supabase.instance.client;
   final _formKey = GlobalKey<FormState>();
   final _datetimeController = TextEditingController();
@@ -22,7 +27,10 @@ class _ManageActivityState extends State<ManageActivity> {
   var loadingStatus = LoadingStatus.loading;
   int? entryID;
   Map<String, dynamic> fields = {};
+  String? imageUrl;
+  MapEntry<String?, Uint8List>? image;
   LoadingStatus? editLoadingStatus;
+  bool hasImage = false;
 
   void fetchData() async {
     await Future.delayed(Duration.zero);
@@ -61,9 +69,28 @@ class _ManageActivityState extends State<ManageActivity> {
       return <String, dynamic>{};
     });
 
+    final posterImage = await client.storage
+        .from(_activities)
+        .list(
+          path: _folderPath,
+          searchOptions: SearchOptions(
+            search: '$id',
+          ),
+        )
+        .then((value) =>
+            value.where((element) => element.name == '$id').firstOrNull);
+
+    String? url;
+
+    if (posterImage != null) {
+      hasImage = true;
+      url = client.storage.from(_activities).getPublicUrl('$_folderPath/$id');
+    }
+
     setState(() {
       entryID = id;
       fields = result;
+      imageUrl = url;
       loadingStatus = fail ? LoadingStatus.fail : LoadingStatus.success;
     });
   }
@@ -85,7 +112,11 @@ class _ManageActivityState extends State<ManageActivity> {
     Widget body;
 
     if (loadingStatus == LoadingStatus.loading) {
-      body = const Center(child: CircularProgressIndicator());
+      body = Center(
+        child: CircularProgressIndicator(
+          color: Colors.blueAccent[700],
+        ),
+      );
     } else if (loadingStatus == LoadingStatus.fail) {
       body = Center(
         child: RetryDataFetch(
@@ -159,6 +190,19 @@ class _ManageActivityState extends State<ManageActivity> {
                   return null;
                 },
               ),
+              const SizedBox(height: 15),
+              ImageSelector(
+                imageUrl: imageUrl,
+                onImageChanged: (name, imageBytes) {
+                  if (imageBytes == null) {
+                    image = null;
+                  } else {
+                    image = MapEntry(name, imageBytes);
+                  }
+
+                  if (imageUrl != null) setState(() => imageUrl = null);
+                },
+              ),
               const Expanded(child: SizedBox()),
               ElevatedButton.icon(
                 icon: editLoadingStatus == LoadingStatus.loading
@@ -171,56 +215,103 @@ class _ManageActivityState extends State<ManageActivity> {
                 label: const Text('Update'),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(40),
-                  backgroundColor: Colors.blue[700],
+                  backgroundColor: Colors.blueAccent[700],
                   foregroundColor: Colors.white,
                   textStyle: const TextStyle(fontSize: 18, letterSpacing: 1),
                 ),
-                onPressed: () {
+                onPressed: () async {
                   if (editLoadingStatus != null ||
                       _formKey.currentState?.validate() != true) {
                     return;
                   }
 
                   _formKey.currentState?.save();
-                  var fail = false;
+                  var status = 0;
 
                   setState(() {
                     editLoadingStatus = LoadingStatus.loading;
                   });
 
-                  client
+                  await client
                       .from('activity')
                       .update(fields)
                       .eq('id', entryID!)
                       .catchError((error) {
-                    fail = true;
+                    status = 1;
 
                     if (kDebugMode) {
                       print(error);
                     }
-                  }).then((value) {
-                    var message = 'Activity succesfully updated';
-                    LoadingStatus? newStatus = LoadingStatus.success;
+                  });
 
-                    if (fail) {
-                      message = 'A problem ocurred updating the activity';
-                      newStatus = null;
-                    }
+                  if (status == 0) {
+                    final path = '$_folderPath/$entryID';
 
-                    setState(() {
-                      editLoadingStatus = newStatus;
-                    });
+                    if (image == null && hasImage) {
+                      final result =
+                          await client.storage.from(_activities).remove([path]);
 
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(SnackBar(
-                          content: Text(message),
-                        ))
-                        .closed
-                        .then((value) {
-                      if (editLoadingStatus == LoadingStatus.success) {
-                        Navigator.pop(context);
+                      if (result.isEmpty) {
+                        status = 2;
+                      } else {
+                        hasImage = false;
                       }
-                    });
+                    } else if (image != null && image!.key != null) {
+                      final ext = image!.key!.split('.').last.toLowerCase();
+
+                      await client.storage
+                          .from(_activities)
+                          .uploadBinary(path, image!.value,
+                              fileOptions: FileOptions(
+                                upsert: true,
+                                contentType: 'image/$ext',
+                              ))
+                          .catchError((error) {
+                        status = 3;
+
+                        if (kDebugMode) {
+                          print(error);
+                        }
+
+                        return '';
+                      });
+
+                      if (status == 0) hasImage = true;
+                    }
+                  }
+
+                  if (!mounted) {
+                    return;
+                  }
+
+                  var message = 'Activity succesfully updated';
+                  LoadingStatus? newStatus = LoadingStatus.success;
+
+                  if (status == 1) {
+                    message = 'A problem ocurred updating the activity';
+                    newStatus = null;
+                  } else if (status == 2) {
+                    message = 'A problem ocurred removing the image';
+                    newStatus = null;
+                  } else if (status == 3) {
+                    message = 'A problem ocurred uploading the image';
+                    newStatus = null;
+                  }
+
+                  setState(() {
+                    editLoadingStatus = newStatus;
+                  });
+
+                  // ignore: use_build_context_synchronously
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(
+                        content: Text(message),
+                      ))
+                      .closed
+                      .then((value) {
+                    if (editLoadingStatus == LoadingStatus.success) {
+                      Navigator.pop(context);
+                    }
                   });
                 },
               ),
@@ -276,6 +367,7 @@ class _ManageActivityState extends State<ManageActivity> {
         backgroundColor: Colors.blueAccent[700],
         foregroundColor: Colors.white,
       ),
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: body,
       ),

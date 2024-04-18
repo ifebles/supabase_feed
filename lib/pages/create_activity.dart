@@ -152,7 +152,7 @@ class _CreateActivityState extends State<CreateActivity> {
                     await client.storage
                         .from('activities')
                         .uploadBinary(
-                            '/${client.auth.currentUser!.id}/activity/${inserted['id']}',
+                            '${client.auth.currentUser!.id}/activity/${inserted['id']}',
                             image!.value,
                             fileOptions: FileOptions(
                               contentType: 'image/$ext',
