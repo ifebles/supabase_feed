@@ -1,7 +1,8 @@
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_feed/components/sized_progress_indicator.dart';
+import 'package:supabase_feed/enums/loading_status.dart';
 
 class ImageSelector extends StatefulWidget {
   final void Function(String? name, Uint8List? imageBytes) onImageChanged;
@@ -25,14 +26,13 @@ class _ImageSelectorState extends State<ImageSelector> {
   Uint8List? imageBytes;
   String? imageUrl;
   String? imageName;
+  LoadingStatus? loadingStatus;
+  var _imageKey = UniqueKey();
 
   @override
   void initState() {
     super.initState();
-
-    Future.delayed(Duration.zero).then((value) {
-      imageUrl = widget.imageUrl;
-    });
+    imageUrl = widget.imageUrl;
   }
 
   @override
@@ -41,36 +41,180 @@ class _ImageSelectorState extends State<ImageSelector> {
     final canEdit = widget.canEdit;
     final selectLabel = widget.selectLabel;
 
-    Image? image;
+    ///
+
+    Widget? image;
 
     if (imageUrl != null) {
-      image = Image.network(imageUrl!, fit: BoxFit.cover);
+      image = Image.network(
+        imageUrl!,
+        key: _imageKey,
+        fit: BoxFit.cover,
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (frame == null) {
+            return const SizedProgressIndicator(
+              padding: 20,
+              color: Colors.grey,
+            );
+          }
+
+          if (loadingStatus != LoadingStatus.success) {
+            // Setting it before the state update for loadingBuilder
+            loadingStatus = LoadingStatus.success;
+            Future.delayed(Duration.zero).then((value) =>
+                setState(() => loadingStatus = LoadingStatus.success));
+          }
+          return child;
+        },
+        errorBuilder: (context, error, stackTrace) {
+          const child = Center(
+            child: Icon(Icons.broken_image, color: Colors.grey),
+          );
+
+          if (loadingStatus == LoadingStatus.fail) return child;
+
+          if (kDebugMode) {
+            print("$error.\n$stackTrace");
+          }
+
+          Future.delayed(Duration.zero).then(
+              (value) => setState(() => loadingStatus = LoadingStatus.fail));
+
+          return child;
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingStatus == LoadingStatus.success) return child;
+
+          double? value;
+
+          if (loadingStatus != null && loadingProgress == null) {
+            return child;
+          } else if (loadingStatus == null) {
+            Future.delayed(Duration.zero).then((value) =>
+                setState(() => loadingStatus = LoadingStatus.loading));
+          }
+
+          if (loadingProgress?.expectedTotalBytes != null) {
+            value = loadingProgress!.cumulativeBytesLoaded /
+                loadingProgress.expectedTotalBytes!;
+          }
+
+          return SizedProgressIndicator(
+            value: value,
+            padding: 20,
+            color: Colors.grey,
+          );
+        },
+      );
     } else if (imageBytes != null) {
       image = Image.memory(imageBytes!, fit: BoxFit.cover);
     }
 
+    ///
+
+    List<Widget>? sideInfo;
+
+    if (loadingStatus == LoadingStatus.loading) {
+      sideInfo = [
+        const Text('Loading...'),
+      ];
+    } else if (loadingStatus == LoadingStatus.fail) {
+      sideInfo = [
+        const Text('Failed to download image'),
+        const Text(
+          'Tap to retry',
+          style: TextStyle(
+            letterSpacing: 1,
+            fontStyle: FontStyle.italic,
+            color: Colors.grey,
+          ),
+        ),
+      ];
+    } else {
+      sideInfo = [
+        Text(
+          imageName ?? 'Selected element',
+          style: const TextStyle(
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ];
+
+      if (canEdit) {
+        sideInfo.addAll([
+          const SizedBox(height: 10),
+          const Text(
+            'Edit image',
+            style: TextStyle(
+              letterSpacing: 1,
+              fontStyle: FontStyle.italic,
+              color: Colors.grey,
+            ),
+          ),
+        ]);
+      }
+    }
+
+    ///
+
+    void Function()? tapAction;
+
+    if (loadingStatus == LoadingStatus.fail) {
+      tapAction = () {
+        setState(() {
+          _imageKey = UniqueKey();
+          loadingStatus = null;
+        });
+      };
+    } else if (canEdit) {
+      tapAction = () async {
+        final picker = ImagePicker();
+        final image = await picker.pickImage(source: ImageSource.gallery);
+
+        if (image == null) return;
+
+        image.readAsBytes().then((value) {
+          setState(() {
+            imageUrl = null;
+            imageBytes = value;
+            imageName = image.name;
+          });
+
+          onImageChanged(image.name, value);
+        });
+      };
+    }
+
+    ///
+
+    List<Widget> clearBtn = [];
+
+    if (canEdit &&
+        (imageBytes != null || loadingStatus == LoadingStatus.success)) {
+      clearBtn = [
+        const Expanded(child: SizedBox()),
+        IconButton(
+          onPressed: () {
+            setState(() {
+              imageUrl = null;
+              imageBytes = null;
+              imageName = null;
+              loadingStatus = null;
+            });
+
+            onImageChanged(null, null);
+          },
+          icon: const Icon(Icons.close),
+        ),
+      ];
+    }
+
+    ///
+
     return Card(
       clipBehavior: Clip.hardEdge,
       child: InkWell(
-        onTap: !canEdit
-            ? null
-            : () async {
-                final picker = ImagePicker();
-                final image =
-                    await picker.pickImage(source: ImageSource.gallery);
-
-                if (image == null) return;
-
-                image.readAsBytes().then((value) {
-                  setState(() {
-                    imageUrl = null;
-                    imageBytes = value;
-                    imageName = image.name;
-                  });
-
-                  onImageChanged(image.name, value);
-                });
-              },
+        onTap: tapAction,
         child: Row(
           children: [
             SizedBox(
@@ -99,48 +243,9 @@ class _ImageSelectorState extends State<ImageSelector> {
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        imageName ?? 'Selected element',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ]
-                        .followedBy(!canEdit
-                            ? []
-                            : [
-                                const SizedBox(height: 10),
-                                const Text(
-                                  'Edit image',
-                                  style: TextStyle(
-                                    letterSpacing: 1,
-                                    fontStyle: FontStyle.italic,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ])
-                        .toList(),
+                    children: sideInfo,
                   ),
-          ]
-              .followedBy(!canEdit || imageBytes == null
-                  ? []
-                  : [
-                      const Expanded(child: SizedBox()),
-                      IconButton(
-                        onPressed: () {
-                          setState(() {
-                            imageUrl = null;
-                            imageBytes = null;
-                            imageName = null;
-                          });
-
-                          onImageChanged(null, null);
-                        },
-                        icon: const Icon(Icons.close),
-                      ),
-                    ])
-              .toList(),
+          ].followedBy(clearBtn).toList(),
         ),
       ),
     );

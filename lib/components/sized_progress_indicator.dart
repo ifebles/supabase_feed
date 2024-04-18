@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class SizedProgressIndicator extends StatelessWidget {
   final double? diameter;
+  final double? value;
   final double padding;
   final double strokeWidth;
   final Color? color;
@@ -9,6 +10,7 @@ class SizedProgressIndicator extends StatelessWidget {
   const SizedProgressIndicator({
     super.key,
     this.diameter,
+    this.value,
     this.padding = 0,
     this.color,
     this.strokeWidth = 4.0,
@@ -22,6 +24,7 @@ class SizedProgressIndicator extends StatelessWidget {
         height: diameter,
         width: diameter,
         child: CircularProgressIndicator(
+          value: value,
           strokeWidth: strokeWidth,
           color: color,
         ),

@@ -18,14 +18,17 @@ class _HomeState extends State<Home> {
   var loadingStatus = LoadingStatus.loading;
   List<Map<String, dynamic>> data = [];
 
-
   @override
   Widget build(BuildContext context) {
     final body = StreamBuilder(
       stream: _activityStream,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
+          return Center(
+            child: CircularProgressIndicator(
+              color: Colors.blueAccent[700],
+            ),
+          );
         }
 
         final data = snapshot.data!;
@@ -60,8 +63,8 @@ class _HomeState extends State<Home> {
         icon: const Icon(Icons.add),
         color: Colors.white,
         iconSize: 40,
-        style: ButtonStyle(
-          backgroundColor: MaterialStatePropertyAll(Colors.blueAccent[700]),
+        style: IconButton.styleFrom(
+          backgroundColor: Colors.blueAccent[700],
         ),
       ),
     );
