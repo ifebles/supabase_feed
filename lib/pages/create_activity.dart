@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_feed/components/image_selector.dart';
 import 'package:supabase_feed/enums/loading_status.dart';
 import 'package:supabase_feed/components/datetime_form_field.dart';
 import 'package:supabase_feed/components/sized_progress_indicator.dart';
@@ -17,7 +18,9 @@ class _CreateActivityState extends State<CreateActivity> {
   final _formKey = GlobalKey<FormState>();
   final _datetimeController = TextEditingController();
   final fields = <String, dynamic>{};
+
   LoadingStatus? loadingStatus;
+  MapEntry<String?, Uint8List>? image;
 
   @override
   void dispose() {
@@ -88,6 +91,17 @@ class _CreateActivityState extends State<CreateActivity> {
                   return null;
                 },
               ),
+              const SizedBox(height: 15),
+              ImageSelector(
+                selectLabel: 'Select a poster for the activity',
+                onImageChanged: (name, imageBytes) {
+                  if (imageBytes == null) {
+                    image = null;
+                  } else {
+                    image = MapEntry(name, imageBytes);
+                  }
+                },
+              ),
               const Expanded(child: SizedBox()),
               ElevatedButton.icon(
                 icon: loadingStatus == LoadingStatus.loading
@@ -100,55 +114,92 @@ class _CreateActivityState extends State<CreateActivity> {
                 label: const Text('Create'),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(40),
-                  backgroundColor: Colors.blue[700],
+                  backgroundColor: Colors.blueAccent[700],
                   foregroundColor: Colors.white,
                   textStyle: const TextStyle(fontSize: 18, letterSpacing: 1),
                 ),
-                onPressed: () {
+                onPressed: () async {
                   if (loadingStatus != null ||
                       _formKey.currentState?.validate() != true) {
                     return;
                   }
 
                   _formKey.currentState?.save();
-                  var fail = false;
+                  var status = 0;
 
                   setState(() {
                     loadingStatus = LoadingStatus.loading;
                   });
 
-                  client.from('activity').insert(fields).catchError((error) {
-                    fail = true;
+                  final inserted = await client
+                      .from('activity')
+                      .insert(fields)
+                      .select('id')
+                      .single()
+                      .catchError((error) {
+                    status = 1;
 
                     if (kDebugMode) {
                       print(error);
                     }
-                  }).then((value) {
-                    var message = 'Activity succesfully created';
-                    LoadingStatus? newStatus = LoadingStatus.success;
 
-                    if (fail) {
-                      message = 'A problem ocurred creating the activity';
-                      newStatus = null;
-                    }
+                    return <String, dynamic>{};
+                  });
 
-                    setState(() {
-                      loadingStatus = newStatus;
-                    });
+                  if (status == 0 && image != null && image!.key != null) {
+                    final ext = image!.key!.split('.').last.toLowerCase();
 
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(SnackBar(
-                          content: Text(message),
-                        ))
-                        .closed
-                        .then((value) {
-                      if (loadingStatus == LoadingStatus.success) {
-                        Navigator.pop(context);
+                    await client.storage
+                        .from('activities')
+                        .uploadBinary(
+                            '/${client.auth.currentUser!.id}/activity/${inserted['id']}',
+                            image!.value,
+                            fileOptions: FileOptions(
+                              contentType: 'image/$ext',
+                            ))
+                        .catchError((error) {
+                      status = 2;
+
+                      if (kDebugMode) {
+                        print(error);
                       }
+
+                      return '';
                     });
+                  }
+
+                  if (!mounted) {
+                    return;
+                  }
+
+                  var message = 'Activity succesfully created';
+                  LoadingStatus? newStatus = LoadingStatus.success;
+
+                  if (status == 1) {
+                    message = 'A problem ocurred creating the activity';
+                    newStatus = null;
+                  } else if (status == 2) {
+                    message = 'A problem ocurred uploading the image, '
+                        'but the activity was created';
+                  }
+
+                  setState(() {
+                    loadingStatus = newStatus;
+                  });
+
+                  // ignore: use_build_context_synchronously
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(
+                        content: Text(message),
+                      ))
+                      .closed
+                      .then((value) {
+                    if (loadingStatus == LoadingStatus.success) {
+                      Navigator.pop(context);
+                    }
                   });
                 },
-              )
+              ),
             ],
           ),
         ),
