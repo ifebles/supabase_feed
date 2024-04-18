@@ -132,10 +132,14 @@ class _ImageSelectorState extends State<ImageSelector> {
       ];
     } else {
       sideInfo = [
-        Text(
-          imageName ?? 'Selected element',
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
+        Container(
+          constraints: const BoxConstraints(maxWidth: 200),
+          child: Text(
+            imageName ?? 'Current element',
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
       ];
@@ -166,7 +170,7 @@ class _ImageSelectorState extends State<ImageSelector> {
           loadingStatus = null;
         });
       };
-    } else if (canEdit) {
+    } else if (canEdit && loadingStatus != LoadingStatus.loading) {
       tapAction = () async {
         final picker = ImagePicker();
         final image = await picker.pickImage(source: ImageSource.gallery);
