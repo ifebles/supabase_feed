@@ -24,6 +24,7 @@ class _HomeState extends State<Home> {
       stream: _activityStream,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
+          // This works even for the logout
           return Center(
             child: CircularProgressIndicator(
               color: Colors.blueAccent[700],
@@ -55,6 +56,20 @@ class _HomeState extends State<Home> {
     );
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Home'),
+        actions: [
+          IconButton(
+            onPressed: () async {
+              await client.auth.signOut();
+
+              if (!context.mounted) return;
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+            icon: const Icon(Icons.logout),
+          ),
+        ],
+      ),
       body: SafeArea(child: body),
       floatingActionButton: IconButton(
         onPressed: () {
