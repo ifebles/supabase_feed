@@ -321,6 +321,7 @@ class _ManageActivityState extends State<ManageActivity> {
                     context: context,
                     client: client,
                     entryID: entryID!,
+                    hasImage: hasImage,
                   );
 
                   if (result == null || !mounted) {

@@ -7,6 +7,7 @@ class DeleteActivity {
     required BuildContext context,
     required SupabaseClient client,
     required int entryID,
+    required bool hasImage,
   }) {
     return showModalBottomSheet<bool?>(
       enableDrag: false,
@@ -18,9 +19,11 @@ class DeleteActivity {
         return StatefulBuilder(
           builder: (context, setState) {
             var sheetBody = isDeleting
-                ? const PopScope(
+                ? PopScope(
                     canPop: false,
-                    child: CircularProgressIndicator(),
+                    child: CircularProgressIndicator(
+                      color: Colors.blueAccent[700],
+                    ),
                   )
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -49,13 +52,40 @@ class DeleteActivity {
                           ),
                           const SizedBox(width: 8),
                           ElevatedButton.icon(
-                            onPressed: () {
+                            onPressed: () async {
                               setState(() {
                                 isDeleting = true;
                               });
 
                               var deleteFail = false;
-                              client
+
+                              if (hasImage) {
+                                await client.storage.from('activities').remove([
+                                  '${client.auth.currentUser!.id}/activity/$entryID',
+                                ]).catchError((error) {
+                                  deleteFail = true;
+
+                                  if (kDebugMode) {
+                                    print(error);
+                                  }
+
+                                  return <FileObject>[];
+                                });
+                              }
+
+                              if (deleteFail) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Unable to remove image'),
+                                    ),
+                                  );
+                                }
+
+                                return;
+                              }
+
+                              await client
                                   .from('activity')
                                   .delete()
                                   .eq('id', entryID)
@@ -65,8 +95,10 @@ class DeleteActivity {
                                 if (kDebugMode) {
                                   print(error);
                                 }
-                              }).then((value) =>
-                                      Navigator.pop(context, !deleteFail));
+                              });
+
+                              if (!context.mounted) return;
+                              Navigator.pop(context, !deleteFail);
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.redAccent[700],
